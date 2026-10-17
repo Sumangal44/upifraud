@@ -19,6 +19,13 @@ make loadgen     # synthetic traffic incl. fraud patterns (Ctrl-C to stop)
 open http://localhost:3000   # SOC dashboard — live alerts, decisions, graph view
 ```
 
+One-shot verification of the whole pipeline (build → up → seed → fraud
+scenario incl. WebSocket alert → assertions):
+
+```bash
+make e2e         # or: bash scripts/e2e.sh --down
+```
+
 Without Docker, the same stack runs natively (see [Local development](#local-development)).
 
 ## How a transaction flows

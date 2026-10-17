@@ -6,7 +6,7 @@ PY      ?= python3
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up down clean ps logs seed loadgen train venv \
+.PHONY: help up down clean ps logs seed loadgen train venv e2e \
         test test-rust test-py test-ts fmt build-rust init
 
 help: ## Show available targets
@@ -34,6 +34,9 @@ seed: ## Seed Memgraph + Dragonfly with demo entities and a money-mule ring
 
 loadgen: ## Generate synthetic traffic (foreground; Ctrl-C to stop)
 	$(COMPOSE) run --rm loadgen
+
+e2e: ## Full pipeline test: build → up → seed → fraud scenario → verify
+	bash scripts/e2e.sh
 
 # --------------------------------------------------------------------- dev ---
 # Python targets prefer the project venv (created by `make venv` or manually).

@@ -1,0 +1,20 @@
+[package]
+name = "gateway"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "UPI transaction ingestion gateway (Actix-web → Redpanda)"
+
+[dependencies]
+upifraud-core = { workspace = true }
+tokio = { workspace = true }
+actix-web = { workspace = true }
+actix-cors = "0.7"
+serde = { workspace = true }
+serde_json = { workspace = true }
+rskafka = { workspace = true }
+anyhow = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }

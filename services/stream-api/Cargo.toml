@@ -1,0 +1,23 @@
+[package]
+name = "stream-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Decision history REST API + WebSocket alert stream for the SOC portal"
+
+[dependencies]
+upifraud-core = { workspace = true }
+tokio = { workspace = true }
+actix-web = { workspace = true }
+actix-cors = "0.7"
+actix-ws = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rskafka = { workspace = true }
+redis = { workspace = true }
+reqwest = { workspace = true }
+anyhow = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

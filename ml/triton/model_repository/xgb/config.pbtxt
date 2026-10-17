@@ -1,0 +1,18 @@
+name: "xgb"
+backend: "python"
+max_batch_size: 32
+input [
+  {
+    name: "features"
+    data_type: TYPE_FP32
+    dims: [20]   # canonical TABULAR_FEATURES row (see ml/artifacts/features.json)
+  }
+]
+output [
+  {
+    name: "tabular_score"
+    data_type: TYPE_FP32
+    dims: [1]    # P(fraud) from the XGBoost booster, 0..1
+  }
+]
+instance_group [ { count: 1, kind: KIND_CPU } ]

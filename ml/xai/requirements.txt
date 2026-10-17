@@ -1,0 +1,7 @@
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.6
+httpx>=0.27
+# Optional model-based attributions (guarded import — not required):
+#   shap>=0.45
+#   xgboost>=2.0

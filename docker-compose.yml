@@ -1,0 +1,227 @@
+# ============================================================================
+# UPI Fraud Detection — local development platform
+#
+#   make up       # build + start everything
+#   make seed     # load demo entities + a money-mule ring into Memgraph
+#   make loadgen  # synthetic traffic against the gateway
+#   make down     # stop (add `-v` to wipe volumes)
+#
+# Optional GPU stack (Triton / vLLM): docker compose --profile gpu up
+# ============================================================================
+name: upifraud
+
+services:
+  # --------------------------------------------------------------------------
+  # Streaming backbone (Redpanda: Kafka-API compatible, no JVM)
+  # --------------------------------------------------------------------------
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.5
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --schema-registry-addr=internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr=0.0.0.0:33145
+      - --advertise-rpc-addr=redpanda:33145
+    ports:
+      - "19092:19092" # Kafka API (host clients)
+      - "18081:18081" # Schema Registry (host clients)
+      - "9644:9644"   # Admin API / metrics
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v3.12.0
+    environment:
+      CONSOLE_REDPANDA_BROKERS: redpanda:9092
+    ports:
+      - "8086:8080" # topic browser UI
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  # --------------------------------------------------------------------------
+  # Feature stores
+  # --------------------------------------------------------------------------
+  dragonfly:
+    image: dragonflydb/dragonfly:v1.27.1
+    command: ["--maxmemory=512mb", "--maxmemory-policy=noeviction"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - dragonfly-data:/data
+
+  memgraph:
+    image: memgraph/memgraph:3.13.2
+    command: ["--log-level=WARNING", "--telemetry-enabled=false"]
+    ports:
+      - "7687:7687" # Bolt
+    volumes:
+      - memgraph-data:/var/lib/memgraph
+
+  # --------------------------------------------------------------------------
+  # One-shot tooling (profile: tools) — `make seed` / `make loadgen`
+  # --------------------------------------------------------------------------
+  seed:
+    build:
+      context: .
+      dockerfile: tools/seed/Dockerfile
+    environment: &py-env
+      MEMGRAPH_HOST: memgraph
+      MEMGRAPH_PORT: "7687"
+      DRAGONFLY_HOST: dragonfly
+      DRAGONFLY_PORT: "6379"
+      REDPANDA_BROKERS: redpanda:9092
+      INFERENCE_URL: http://inference:8001
+    depends_on:
+      - memgraph
+      - dragonfly
+      - redpanda
+    profiles: ["tools"]
+
+  loadgen:
+    build:
+      context: .
+      dockerfile: tools/loadgen/Dockerfile
+    environment:
+      GATEWAY_URL: http://gateway:8080
+      LOADGEN_TPS: "20"
+      LOADGEN_FRAUD_RATIO: "0.15"
+    depends_on:
+      - gateway
+    profiles: ["tools"]
+
+  # --------------------------------------------------------------------------
+  # Application services
+  # --------------------------------------------------------------------------
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    environment:
+      REDPANDA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_TX_RAW: upi.tx.raw
+      GATEWAY_BIND: 0.0.0.0:8080
+      RUST_LOG: info,upifraud=debug
+    ports:
+      - "8080:8080" # POST /v1/transactions
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  feature-worker:
+    build:
+      context: .
+      dockerfile: services/feature-worker/Dockerfile
+    environment:
+      REDPANDA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_TX_RAW: upi.tx.raw
+      KAFKA_TOPIC_DECISIONS: upi.decisions
+      KAFKA_TOPIC_ALERTS: upi.alerts
+      DRAGONFLY_HOST: dragonfly
+      DRAGONFLY_PORT: "6379"
+      MEMGRAPH_HOST: memgraph
+      MEMGRAPH_PORT: "7687"
+      INFERENCE_URL: http://inference:8001
+      RISK_BLOCK_THRESHOLD: "0.80"
+      RISK_CHALLENGE_THRESHOLD: "0.50"
+      GNN_SCORE_WEIGHT: "0.6"
+      TABULAR_SCORE_WEIGHT: "0.4"
+      RUST_LOG: info,upifraud=debug
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  stream-api:
+    build:
+      context: .
+      dockerfile: services/stream-api/Dockerfile
+    environment:
+      REDPANDA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_DECISIONS: upi.decisions
+      KAFKA_TOPIC_ALERTS: upi.alerts
+      DRAGONFLY_HOST: dragonfly
+      DRAGONFLY_PORT: "6379"
+      XAI_URL: http://xai:8002
+      STREAM_API_BIND: 0.0.0.0:8081
+      RUST_LOG: info,upifraud=debug
+    ports:
+      - "8081:8081" # REST + WebSocket for the portal
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  inference:
+    build:
+      context: .
+      dockerfile: ml/inference/Dockerfile
+    environment:
+      INFERENCE_PORT: "8001"
+      ARTIFACTS_DIR: /app/ml/artifacts
+      GNN_SCORE_WEIGHT: "0.6"
+      TABULAR_SCORE_WEIGHT: "0.4"
+    ports:
+      - "8001:8001"
+
+  xai:
+    build:
+      context: .
+      dockerfile: ml/xai/Dockerfile
+    environment:
+      XAI_PORT: "8002"
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-}
+      VLLM_MODEL: ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+    ports:
+      - "8002:8002"
+
+  portal:
+    build:
+      context: .
+      dockerfile: apps/portal/Dockerfile
+    environment:
+      NEXT_PUBLIC_STREAM_API_URL: ${NEXT_PUBLIC_STREAM_API_URL:-http://localhost:8081}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - stream-api
+
+  # --------------------------------------------------------------------------
+  # GPU stack (optional): Triton model server + local vLLM SOC agent
+  #   docker compose --profile gpu up
+  # --------------------------------------------------------------------------
+  triton:
+    image: nvcr.io/nvidia/tritonserver:24.10-py3
+    command: ["tritonserver", "--model-repository=/models"]
+    volumes:
+      - ./ml/triton/model_repository:/models:ro
+    ports:
+      - "8000:8000"
+    profiles: ["gpu"]
+    gpus: all
+
+  vllm:
+    # Pin a specific release tag in production.
+    image: vllm/vllm-openai:latest
+    command:
+      - --model
+      - ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+      - --max-model-len
+      - "4096"
+    ports:
+      - "8003:8000"
+    profiles: ["gpu"]
+    gpus: all
+
+volumes:
+  dragonfly-data:
+  memgraph-data:

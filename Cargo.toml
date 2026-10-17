@@ -1,0 +1,50 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/upifraud-core",
+    "services/gateway",
+    "services/feature-worker",
+    "services/stream-api",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Proprietary"
+authors = ["UPI Fraud Detection Team"]
+
+[workspace.dependencies]
+# Internal
+upifraud-core = { path = "crates/upifraud-core" }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP
+actix-web = "4"
+actix-ws = "0.2"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Streaming (pure-Rust Kafka client, Redpanda-compatible)
+rskafka = "0.6"
+
+# Stores
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "tokio-rustls-comp"] }
+neo4rs = "0.8"
+
+# Utilities
+anyhow = "1"
+thiserror = "1"
+dotenvy = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1", features = ["v4"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

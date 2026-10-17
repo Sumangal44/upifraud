@@ -1,0 +1,3 @@
+# Internal SOC console — indexing not applicable.
+User-agent: *
+Disallow: /

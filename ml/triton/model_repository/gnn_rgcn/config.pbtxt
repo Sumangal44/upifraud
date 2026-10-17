@@ -1,0 +1,29 @@
+name: "gnn_rgcn"
+backend: "python"
+max_batch_size: 0
+# Variable-shaped graph payloads are not batchable — one graph per request.
+input [
+  {
+    name: "node_features"
+    data_type: TYPE_FP32
+    dims: [-1, 10]   # [num_nodes, NODE_FEATURE_DIM]
+  },
+  {
+    name: "edge_index"
+    data_type: TYPE_INT64
+    dims: [2, -1]    # [2, num_edges] forward + reverse relations
+  },
+  {
+    name: "edge_type"
+    data_type: TYPE_INT64
+    dims: [-1]       # [num_edges] relation ids (EDGE_RELS + reverse offset)
+  }
+]
+output [
+  {
+    name: "gnn_score"
+    data_type: TYPE_FP32
+    dims: [-1]       # per-node sigmoid score (max-pool over Accounts upstream)
+  }
+]
+instance_group [ { count: 1, kind: KIND_GPU } ]

@@ -1,0 +1,11 @@
+numpy>=1.26
+pandas>=2.1
+scikit-learn>=1.4
+xgboost>=2.0
+
+# --- GNN training is OPTIONAL (CPU wheels are heavy; `make train` skips it
+# cleanly when torch is missing). Install manually when you need it:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install torch-geometric
+# torch>=2.2
+# torch-geometric>=2.5

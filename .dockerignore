@@ -1,0 +1,33 @@
+# Build contexts are the repo root (workspace builds) — keep them tiny.
+.git
+.gitignore
+
+# Rust
+target/
+
+# Node
+node_modules/
+.next/
+apps/portal/.next/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ML artifacts are BAKED IN intentionally for inference/xai images via
+# explicit COPY ml — but exclude heavy non-model outputs:
+ml/reports/
+
+# Env / secrets / docs
+.env
+.env.*
+!.env.example
+*.md
+docs/
+infra/
+
+# OS
+.DS_Store

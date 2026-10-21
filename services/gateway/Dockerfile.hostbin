@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1
+# Runtime-only image for gateway — pairs with scripts/hostbuild.sh, which
+# builds release binaries on the host (for machines where in-container cargo
+# builds exhaust the Docker VM). Staged binaries are copied to .hostbuild/.
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY .hostbuild/gateway /usr/local/bin/gateway
+
+EXPOSE 8080
+ENV RUST_LOG=info
+CMD ["gateway"]

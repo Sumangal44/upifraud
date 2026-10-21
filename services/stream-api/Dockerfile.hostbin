@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1
+# Runtime-only image for stream-api — see scripts/hostbuild.sh.
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY .hostbuild/stream-api /usr/local/bin/stream-api
+
+EXPOSE 8081
+ENV RUST_LOG=info
+CMD ["stream-api"]

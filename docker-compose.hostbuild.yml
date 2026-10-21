@@ -1,0 +1,28 @@
+# ============================================================================
+# Low-memory override: build Rust runtime images from HOST-built binaries
+# instead of compiling cargo inside the Docker VM.
+#
+#   ./scripts/hostbuild.sh          # cargo build --release + docker build
+#   # or manually:
+#   cargo build --release --workspace
+#   mkdir -p .hostbuild && cp target/release/{gateway,feature-worker,stream-api} .hostbuild/
+#   docker compose -f docker-compose.yml -f docker-compose.hostbuild.yml build
+#
+# Use with the standard `up`:
+#   docker compose -f docker-compose.yml -f docker-compose.hostbuild.yml up -d
+# ============================================================================
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile.hostbin
+
+  feature-worker:
+    build:
+      context: .
+      dockerfile: services/feature-worker/Dockerfile.hostbin
+
+  stream-api:
+    build:
+      context: .
+      dockerfile: services/stream-api/Dockerfile.hostbin
